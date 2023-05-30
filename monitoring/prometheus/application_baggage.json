@@ -1,0 +1,13 @@
+[
+  {
+    "targets": [
+      "ks201a-streams-baggage-1:7071",
+      "ks201a-streams-baggage-2:7071"
+    ],
+    "labels": {
+      "job": "streams-baggage",
+      "cluster_type": "streams",
+      "cluster_id": "streams-baggage"
+    }
+  }
+]
