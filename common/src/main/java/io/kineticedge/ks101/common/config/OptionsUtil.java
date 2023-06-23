@@ -1,9 +1,13 @@
 package io.kineticedge.ks101.common.config;
 
 import com.beust.jcommander.JCommander;
+import io.kineticedge.ks101.common.util.PropertiesUtil;
 import org.apache.commons.lang3.BooleanUtils;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -74,9 +78,16 @@ public class OptionsUtil {
                         f.set(object, Long.parseLong(value));
                     } else if (Pattern.class.equals(f.getType())) {
                         f.set(object, Pattern.compile(value));
+                    } else if (List.class.equals(f.getType())) {
+                        // only list of strings are supported, and delimiter must be ","
+                        f.set(object, Arrays.asList(value.trim().split("\\s*,\\s*")));
+                    //} else if (Map.class.equals(f.getType())) {
+                    //    // if the field type is a Map, assuming input is a key=value list of properties.
+                    //    f.set(object, PropertiesUtil.toMap(value));
                     } else if (Enum.class.isAssignableFrom(f.getType())) {
                         f.set(object, create(f.getType(), value));
                     }
+
                 } catch (final IllegalAccessException e) {
                     throw new RuntimeException(e);
                 }

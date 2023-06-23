@@ -34,7 +34,6 @@ kt --create --replication-factor 3 --partitions 4 --topic bag-check-expedite --i
 kt --create --replication-factor 3 --partitions 4 --topic output-bag-check --if-not-exists
 
 
-(cd applications; docker-compose up -d producer)
-#(cd applications; docker-compose up -d)
+(cd applications; docker-compose up -d streams-baggage)
 (cd monitoring; docker-compose up -d)
 

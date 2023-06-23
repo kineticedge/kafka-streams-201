@@ -57,17 +57,11 @@ public class Streams {
 
     }
 
-    private StreamsBuilder streamsBuilder(final Options options) {
+    private void create(StreamsBuilder builder, String input, String output) {
 
-        final var builder = new StreamsBuilder();
+        final var materialized = Materialized.<String, BagClaim, KeyValueStore<Bytes, byte[]>>as("aggregate-" + input).withCachingDisabled();
 
-        final var materialized = Materialized.<String, BagClaim, KeyValueStore<Bytes, byte[]>>as("aggregate").withCachingDisabled();
-
-        final KStream<String, BagClaim> name = builder.<String, BagClaim>stream(options.getInputPattern(), Consumed.as("input"));
-
-        name
-                //.peek((k, v) -> log.debug("key={}, value={}", k, v), Named.as("peek-in"))
-
+        builder.<String, BagClaim>stream(input)
                 .processValues(() -> new FixedKeyProcessor<String, BagClaim, BagClaim>() {
 
                     private final Map<String, Sensor> sensors = new HashMap<>();
@@ -117,17 +111,100 @@ public class Streams {
                         return sensor;
                     }
 
-                }, Named.as("sensor"))
+                }, Named.as("sensor-for-" + input))
                 .groupByKey(Grouped.as("groupByKey"))
                 .aggregate(
                         BagClaim::new,
                         (key, event, aggregate) -> event,
-                        Named.as("aggregate"),
+                        Named.as("aggregate-for-" + input),
                         materialized
                 )
-                .toStream(Named.as("toStream"))
+                .toStream(Named.as("toStream-for-" + input))
                 //.peek((k, v) -> log.debug("key={}, value={}", k, v), Named.as("peek-out"))
-                .to(options.getOutput(), Produced.as("output"));
+                .to(output, Produced.as("output-for-" + input));
+    }
+
+    private StreamsBuilder streamsBuilder(final Options options) {
+
+        final var builder = new StreamsBuilder();
+
+        create(builder, options.getInputs().get(0), options.getOutput());
+        create(builder, options.getInputs().get(1), options.getOutput());
+//        final var materialized = Materialized.<String, BagClaim, KeyValueStore<Bytes, byte[]>>as("aggregate").withCachingDisabled();
+//
+//        //final KStream<String, BagClaim> name = builder.<String, BagClaim>stream(options.getInput(), Consumed.as("input"));
+//        final KStream<String, BagClaim> primary = builder.<String, BagClaim>stream(options.getInputs().get(0), Consumed.as("input"));
+//        final KStream<String, BagClaim> priority = builder.<String, BagClaim>stream(options.getInputs().get(1), Consumed.as("two"));
+//
+//        // 1 - changes partitions fetch size to a smaller number.
+//        // 2 - use merge and verify no difference.
+//        // 3 - max records / poll()
+//
+//        primary
+//                .merge(priority, Named.as("input2"))
+//               // .me
+//                //.peek((k, v) -> log.debug("key={}, value={}", k, v), Named.as("peek-in"))
+//
+//                .processValues(() -> new FixedKeyProcessor<String, BagClaim, BagClaim>() {
+//
+//                    private final Map<String, Sensor> sensors = new HashMap<>();
+//
+//                    private FixedKeyProcessorContext<String, BagClaim> context;
+//
+//                    @Override
+//                    public void init(final FixedKeyProcessorContext<String, BagClaim> context) {
+//                        this.context = context;
+//                    }
+//
+//                    @Override
+//                    public void process(final FixedKeyRecord<String, BagClaim> record) {
+//
+//                        context.recordMetadata().ifPresent((m) -> {
+//
+//                            log.info("PROCESSING: topic={}, partition={}, offset={}, latency={}", m.topic(), m.partition(), m.offset(), (System.currentTimeMillis() - record.timestamp()));
+//
+//                            get(m.topic()).record(System.currentTimeMillis() - record.timestamp());
+//                        });
+//
+//                        context.forward(record);
+//                    }
+//
+//                    public Sensor get(final String topicName) {
+//                        return sensors.computeIfAbsent(topicName, (t) -> createSensor(
+//                                        Thread.currentThread().getName(),
+//                                        context.taskId().toString(),
+//                                        ((InternalProcessorContext<String, BagClaim>) context).currentNode().name(),
+//                                        topicName,
+//                                        (StreamsMetricsImpl) context.metrics()
+//                                )
+//                        );
+//                    }
+//
+//                    public Sensor createSensor(final String threadId, final String taskId, final String processorNodeId, final String topicName, final StreamsMetricsImpl streamsMetrics) {
+//                        final Sensor sensor = streamsMetrics.topicLevelSensor(threadId, taskId, processorNodeId, topicName, processorNodeId + "-latency", Sensor.RecordingLevel.INFO);
+//                        addAvgAndMinAndMaxToSensor(
+//                                sensor,
+//                                TOPIC_LEVEL_GROUP,
+//                                streamsMetrics.topicLevelTagMap(threadId, taskId, processorNodeId, topicName),
+//                                "latency",
+//                                "average",
+//                                "minimum",
+//                                "maximum"
+//                        );
+//                        return sensor;
+//                    }
+//
+//                }, Named.as("sensor"))
+//                .groupByKey(Grouped.as("groupByKey"))
+//                .aggregate(
+//                        BagClaim::new,
+//                        (key, event, aggregate) -> event,
+//                        Named.as("aggregate"),
+//                        materialized
+//                )
+//                .toStream(Named.as("toStream"))
+//                //.peek((k, v) -> log.debug("key={}, value={}", k, v), Named.as("peek-out"))
+//                .to(options.getOutput(), Produced.as("output"));
 
         return builder;
     }
